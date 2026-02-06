@@ -88,6 +88,7 @@ class Authorization:
                     local_storage[k] = json.loads(v)
                 except:
                     pass
+        print("[*] Got local storage from browser")
         return local_storage
 
     def _parse_access_token(self, data: dict) -> tuple[int, str, int]:
@@ -96,6 +97,8 @@ class Authorization:
                 client_id = int(k.split(":")[0])
                 access_token = v["access_token"]
                 expires = int(v["expires"])
+                print("[*] Parsed auth data from localStorage")
+
                 return client_id, access_token, expires
 
         raise AuthorizationServiceError(
@@ -105,28 +108,28 @@ class Authorization:
     def _get_auth_page(self) -> None:
         self._driver.get(self._vk_auth_url)
 
-        input("Press ENTER when you log in in to your account...")
+        input("[+] Press ENTER when you log in in to your account...")
 
     def _save_auth_session(self, auth: AuthData) -> None:
         with cfg.session_path.open("w", encoding="utf-8") as f:
             json.dump(asdict(auth), f, indent=4, ensure_ascii=False)
-        print("[*] Saved auth session.")
+        print("[*] Saved auth session")
 
     def _get_auth_session(self) -> AuthData | None:
         try:
             with cfg.session_path.open("r", encoding="utf-8") as f:
                 session = json.load(f)
             res = AuthData(**session)
-            print("[*] Got auth session.")
+            print("[*] Got auth session")
             return res
         except:
             return
 
     def _check_session(self, session: AuthData) -> bool:
         if datetime.now().timestamp() >= session.expires:
-            print("[*] Session expired!")
+            print("[*] Check session: Session expired")
             return False
-        print("[*] Session did not expire!")
+        print("[*] Check session: Session did not expire")
         return True
 
     def _get_new_acces_token(self, auth: AuthData) -> AuthData:
@@ -136,6 +139,7 @@ class Authorization:
         )
         try:
             new_auth = res.json()
+            print("[*] Updated auth data")
             return AuthData(
                 access_token=new_auth["access_token"],
                 client_id=auth.client_id,
@@ -154,7 +158,7 @@ class Authorization:
     def update_session(self, auth: AuthData) -> AuthData:
         new_auth = self._get_new_acces_token(auth)
         self._save_auth_session(new_auth)
-        print("[+] Updated auth session.")
+        print("[*] Updated auth session.")
         return new_auth
 
     def run(self) -> AuthData:

@@ -1,3 +1,4 @@
+from dataclasses import asdict
 from pathlib import Path
 import requests
 import json
@@ -6,6 +7,7 @@ from requests.cookies import RequestsCookieJar
 
 from auth import AuthData, Authorization
 from config import cfg
+from post_parser import PostParserService
 
 
 def get_owner_id(group_slug: str, client_id: int, access_token: str) -> int:
@@ -46,6 +48,7 @@ def main():
 
     auth_service = Authorization()
     auth_data = auth_service.run()
+    print("[+] Authorized")
 
     # cookie example
     # "domain": ".vk.com",
@@ -73,7 +76,7 @@ def main():
         "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
     }
 
-    group_slug = input("Enter the group_slug: ")
+    group_slug = input("Enter the group_slug: ").strip()
     owner_id = get_owner_id(
         group_slug, client_id=auth_data.client_id, access_token=auth_data.access_token
     )
@@ -83,12 +86,12 @@ def main():
 
     data = {
         "extended": "1",
-        "fields": "photo_100,photo_200,photo_base,sex,friend_status,first_name_gen,last_name_gen,screen_name,verified,image_status,has_unseen_stories,is_government_organization,trust_mark,is_verified,social_button_type,url,is_member,can_write_private_message,can_message,member_status",
+        # "fields": "photo_100,photo_200,photo_base,sex,friend_status,first_name_gen,last_name_gen,screen_name,verified,image_status,has_unseen_stories,is_government_organization,trust_mark,is_verified,social_button_type,url,is_member,can_write_private_message,can_message,member_status",
         "filters": "post",
         "filter": "owner",
         "domain": "-" + str(owner_id),
         "start_from": "0",
-        "count": "1",
+        "count": "10",
         "access_token": auth_data.access_token,
     }
     res = requests.post(
@@ -97,13 +100,18 @@ def main():
         cookies=build_cookies(auth_data.cookies),
         headers=headers,
     )
+
+    posts_json = res.json()
+    post_parser_service = PostParserService(posts_json)
+    posts = post_parser_service.run()
+    for post in posts:
+        print(f"Post: {post.id}, {post.likes_count}, {post.text}\n")
+
     try:
         with open("res.json", "w", encoding="utf-8") as f:
-            json.dump(res.json(), f, indent=4, ensure_ascii=False)
+            json.dump([asdict(post) for post in posts], f, indent=4, ensure_ascii=False)
     except:
         print("No JSON")
-
-    print(res.text)
 
 
 if __name__ == "__main__":
