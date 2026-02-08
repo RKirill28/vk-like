@@ -7,6 +7,7 @@ from requests.cookies import RequestsCookieJar
 
 from auth import AuthData, Authorization
 from config import cfg
+from liker import VkLiker
 from post_parser import PostParserService
 
 
@@ -47,7 +48,7 @@ def main():
             f.write("{}")
 
     auth_service = Authorization()
-    auth_data = auth_service.run()
+    session = auth_service.run()
     print("[+] Authorized")
 
     # cookie example
@@ -78,7 +79,7 @@ def main():
 
     group_slug = input("Enter the group_slug: ").strip()
     owner_id = get_owner_id(
-        group_slug, client_id=auth_data.client_id, access_token=auth_data.access_token
+        group_slug, client_id=session.client_id, access_token=session.access_token
     )
     if not owner_id:
         print("Did not get owner_id.")
@@ -91,21 +92,37 @@ def main():
         "filter": "owner",
         "domain": "-" + str(owner_id),
         "start_from": "0",
-        "count": "10",
-        "access_token": auth_data.access_token,
+        "count": "100",
+        "access_token": session.access_token,
     }
     res = requests.post(
-        f"https://api.vk.com/method/wall.get?v=5.269&client_id={auth_data.client_id}",
+        f"https://api.vk.com/method/wall.get?v=5.269&client_id={session.client_id}",
         data=data,
-        cookies=build_cookies(auth_data.cookies),
+        cookies=build_cookies(session.cookies),
         headers=headers,
     )
-
     posts_json = res.json()
-    post_parser_service = PostParserService(posts_json)
-    posts = post_parser_service.run()
-    for post in posts:
-        print(f"Post: {post.id}, {post.likes_count}, {post.text}\n")
+
+    total_count_posts: int = posts_json["response"]["count"]
+
+    for count_posts in range(0, total_count_posts, 100):
+        res = requests.post(
+            f"https://api.vk.com/method/wall.get?v=5.269&client_id={session.client_id}",
+            data=data,
+            cookies=build_cookies(session.cookies),
+            headers=headers,
+        )
+        posts_json = res.json()
+
+        print("Start from", count_posts)
+        data["count"] = "100"
+        data["start_from"] = str(count_posts)
+
+        post_parser_service = PostParserService(posts_json)
+        posts = post_parser_service.run()
+
+        lieker_service = VkLiker()
+        print(lieker_service.like_posts(posts, session))
 
     try:
         with open("res.json", "w", encoding="utf-8") as f:
