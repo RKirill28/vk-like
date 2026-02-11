@@ -66,7 +66,7 @@ class Authorization:
     MOBILE_PHONE_XPATH = "/html/body/div[4]/div[2]/div[2]/div/div[3]/div[1]/div/div/div/div/div[1]/div/div/div[2]/div[1]/div/div/div/form/div[1]/div[3]/span/div/div[2]/input"
 
     def __init__(self) -> None:
-        self._vk_auth_url = "https://m.vk.com"
+        self._vk_auth_url = "https://vk.com"
         self._opts = uc.ChromeOptions()
         # self._opts.add_argument("--no-sandbox")
         # self._opts.add_argument("--disable-dev-shm-usage")

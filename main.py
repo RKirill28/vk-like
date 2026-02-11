@@ -6,6 +6,7 @@ import json
 from requests.cookies import RequestsCookieJar
 
 from auth import AuthData, Authorization
+from captcha import CaptchaSolverService
 from config import cfg
 from liker import VkLiker
 from post_parser import PostParserService
@@ -106,6 +107,9 @@ def main():
     total_count_posts: int = posts_json["response"]["count"]
 
     for count_posts in range(0, total_count_posts, 100):
+        data["start_from"] = str(count_posts)
+        print("Start from", count_posts)
+
         res = requests.post(
             f"https://api.vk.com/method/wall.get?v=5.269&client_id={session.client_id}",
             data=data,
@@ -113,22 +117,19 @@ def main():
             headers=headers,
         )
         posts_json = res.json()
-
-        print("Start from", count_posts)
-        data["count"] = "100"
-        data["start_from"] = str(count_posts)
-
         post_parser_service = PostParserService(posts_json)
         posts = post_parser_service.run()
 
-        lieker_service = VkLiker()
-        print(lieker_service.like_posts(posts, session))
+        captcha_solver = CaptchaSolverService()
+        liker_service = VkLiker(captcha_solver)
 
-    try:
-        with open("res.json", "w", encoding="utf-8") as f:
-            json.dump([asdict(post) for post in posts], f, indent=4, ensure_ascii=False)
-    except:
-        print("No JSON")
+        print(liker_service.like_posts(posts, session))
+
+    # try:
+    #     with open("res.json", "w", encoding="utf-8") as f:
+    #         json.dump([asdict(post) for post in posts], f, indent=4, ensure_ascii=False)
+    # except:
+    #     print("No JSON")
 
 
 if __name__ == "__main__":
