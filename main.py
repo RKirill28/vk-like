@@ -9,7 +9,9 @@ from auth import AuthData, Authorization
 from captcha import CaptchaSolverService
 from config import cfg
 from liker import VkLiker
+from models import PostsResponseModel
 from post_parser import PostParserService
+from vk_api import VkApi
 
 
 def get_owner_id(group_slug: str, client_id: int, access_token: str) -> int:
@@ -96,13 +98,20 @@ def main():
         "count": "100",
         "access_token": session.access_token,
     }
-    res = requests.post(
-        f"https://api.vk.com/method/wall.get?v=5.269&client_id={session.client_id}",
-        data=data,
-        cookies=build_cookies(session.cookies),
-        headers=headers,
+    requests_session = requests.Session()
+    requests_session.headers = headers
+    for k, v in build_cookies(session.cookies).items():
+        requests_session.cookies.set(k, v)
+
+    api = VkApi(requests_session, session)
+    posts = api._fetch(
+        "wall.get",
+        data,
+        {"v": "5.269", "client_id": session.client_id},
+        except_response_model=PostsResponseModel,
     )
-    posts_json = res.json()
+    print(posts)
+    return
 
     total_count_posts: int = posts_json["response"]["count"]
 
@@ -121,9 +130,9 @@ def main():
         posts = post_parser_service.run()
 
         captcha_solver = CaptchaSolverService()
-        liker_service = VkLiker(captcha_solver)
+        liker_service = VkLiker(session, captcha_solver)
 
-        print(liker_service.like_posts(posts, session))
+        print(liker_service.like_posts(posts))
 
     # try:
     #     with open("res.json", "w", encoding="utf-8") as f:

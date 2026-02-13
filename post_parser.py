@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 
+from vk_api import VkApi
+
 
 class PostParserServiceError(Exception):
     """Ошибка в работе парсера постов"""
@@ -16,7 +18,7 @@ class Post:
 
 
 class PostParserService:
-    def __init__(self, posts: dict) -> None:
+    def __init__(self, api: VkApi, posts: dict) -> None:
         """
                 Параметры
                 posts: Словарь с постами вида:

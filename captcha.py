@@ -1,4 +1,5 @@
 import hashlib
+import json
 import re
 from dataclasses import dataclass
 
@@ -24,7 +25,8 @@ class CaptchaSolverService:
         self._captcha_component_done(captcha.session_token)
 
         hash = self._perform_pow(captcha.redirect_uri)
-        self._captcha_check(hash, captcha.session_token)
+        succes_token = self._captcha_check(hash, captcha.session_token)
+        self._end_captcha(succes_token)
 
     def _calculate_hash(self, pow_input: str, diff: int = 2):
         nonce = 0
@@ -45,7 +47,7 @@ class CaptchaSolverService:
         """Script from VK, js from script tag"""
         pow_input = self._get_pow_input(redirect_uri)
         hash = self._calculate_hash(pow_input, 2)
-        print(f'[*] Got captcha hash: {hash}')
+        print(f"[*] Got captcha hash: {hash}")
         return hash
 
     def _parse_captcha_json(self, captcha_error: dict) -> Captcha:
@@ -203,18 +205,41 @@ class CaptchaSolverService:
                 "hash": hash,
             },
         )
-        if res.status_code == 200:
+        if res.status_code != 200:
             raise CaptchaSolverServiceError(
-                f'Не смог получить ответ на решение капчи, код статуса: {res.status_code}'
+                f"Не смог получить ответ на решение капчи, код статуса: {res.status_code}"
             )
+        print()
+        print(res.text)
+        print()
         try:
-            if (res_json := res.json())['response']['status'] == 'OK':
-                print('[+] Success solved captcha!')
-                if (success_token := res_json['response']['success_token']) is not None:
+            res_json = res.json()
+        except json.JSONDecodeError:
+            raise CaptchaSolverServiceError(
+                f"Could not get JSON from response in the captcha_check function, response:{res.text}"
+            )
+
+        try:
+            if res_json["response"]["status"] == "OK":
+                print("[+] Success solved captcha!")
+                if (success_token := res_json["response"]["success_token"]) is not None:
                     return success_token
         except KeyError as e:
             raise CaptchaSolverServiceError(
-                f'Не смог получить данные из ответа на решение капчи:\n{e}, ответ от АПИ:\n{res.text}'
+                f"Не смог получить данные из ответа на решение капчи:\n{e}, ответ от АПИ:\n{res.text}"
+            )
+
+    def _end_captcha(self, success_token: str) -> None:
+        res = requests.post(
+            "https://api.vk.com/method/captchaNotRobot.endSession?v=5.131",
+            params={"v": "5.131"},
+            data={"success_token": success_token, "domain": "vk.com"},
+        )
+        if res.text == '{response: {status: "OK"}}':
+            print("[*] Success finished captcha")
+        else:
+            raise CaptchaSolverServiceError(
+                f"Не удалось успешной закончить капчу:\n{res.text}"
             )
 
 
