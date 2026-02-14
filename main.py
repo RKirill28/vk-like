@@ -13,6 +13,23 @@ from models import PostsResponseModel, ErrorModel
 from post_parser import PostParserService
 from vk_api import VkApi
 
+headers = {
+    "accept": "*/*",
+    "accept-language": "ru,ru-RU;q=0.9,en-US;q=0.8,en;q=0.7",
+    "content-type": "application/x-www-form-urlencoded",
+    "dnt": "1",
+    "origin": "https://vk.com",
+    "priority": "u=1, i",
+    "referer": "https://vk.com/",
+    "sec-ch-ua": '"Not(A:Brand";v="8", "Chromium";v="144", "Google Chrome";v="144"',
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": '"Linux"',
+    "sec-fetch-dest": "empty",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-site": "same-site",
+    "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+}
+
 
 def get_owner_id(group_slug: str, client_id: int, access_token: str) -> int:
     res = requests.post(
@@ -54,31 +71,6 @@ def main():
     session = auth_service.run()
     print("[+] Authorized")
 
-    # cookie example
-    # "domain": ".vk.com",
-    #    "expiry": 1770292504,
-    #    "httpOnly": false,
-    #    "name": "remixmsts",
-    #    "path": "/",
-    #    "sameSite": "None",
-    #    "secure": true,
-    #    "value":kk
-    headers = {
-        "accept": "*/*",
-        "accept-language": "ru,ru-RU;q=0.9,en-US;q=0.8,en;q=0.7",
-        "content-type": "application/x-www-form-urlencoded",
-        "dnt": "1",
-        "origin": "https://vk.com",
-        "priority": "u=1, i",
-        "referer": "https://vk.com/",
-        "sec-ch-ua": '"Not(A:Brand";v="8", "Chromium";v="144", "Google Chrome";v="144"',
-        "sec-ch-ua-mobile": "?0",
-        "sec-ch-ua-platform": '"Linux"',
-        "sec-fetch-dest": "empty",
-        "sec-fetch-mode": "cors",
-        "sec-fetch-site": "same-site",
-        "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
-    }
 
     group_slug = input("Enter the group_slug: ").strip()
     owner_id = get_owner_id(
@@ -89,7 +81,7 @@ def main():
         return
 
     data = {
-        "extended": "1",
+        # "extended": "1",
         # "fields": "photo_100,photo_200,photo_base,sex,friend_status,first_name_gen,last_name_gen,screen_name,verified,image_status,has_unseen_stories,is_government_organization,trust_mark,is_verified,social_button_type,url,is_member,can_write_private_message,can_message,member_status",
         "filters": "post",
         "filter": "owner",
@@ -102,7 +94,7 @@ def main():
     requests_session.headers = headers
     requests_session.cookies = build_cookies(session.cookies)
 
-    api = VkApi(requests_session, session)
+    api = VkApi(requests_session)
     res = api.fetch_and_get_result(
         result_model=PostsResponseModel,
         method="wall.get",

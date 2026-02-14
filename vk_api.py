@@ -22,6 +22,12 @@ T = TypeVar("T", bound=BaseModel)
 class VkApiError(Exception):
     """Ошибка в работе VkApi"""
 
+    def __init__(self, error: ErrorModel | str):
+        self.error = error
+        if isinstance(error, ErrorModel):
+            super().__init__(f'API VK ERROR CODE: {error.error_code}, ERROR MSG: {error.error_msg} ')
+        else:
+            super().__init__(error)
 
 class VkApi:
     based_url = "https://api.vk.com/method"
@@ -44,7 +50,8 @@ class VkApi:
             assert response.status_code == 200
             res_json = response.json()
             if res_json.get("error") is not None:
-                return ErrorModel.model_validate(res_json["error"])
+                error_data = ErrorModel.model_validate(res_json["error"])
+                raise VkApiError(error_data)
 
             if res_json.get("response"):
                 return model.model_validate(res_json["response"])
