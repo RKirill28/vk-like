@@ -2,10 +2,11 @@ from pydantic import BaseModel, Field
 
 
 class PostModel(BaseModel):
-    item_id: int = Field(alias='id')
+    item_id: int = Field(alias="id")
     track_code: str
     type: str
     owner_id: int
+    model_config = {"frozen": True}
 
 
 class PostsResponseModel(BaseModel):

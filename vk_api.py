@@ -8,7 +8,13 @@ import requests
 from pydantic import BaseModel
 
 from auth import AuthData
-from models import ErrorModel, ErrorResponseModel, AddLikeModel, PostModel, PostsResponseModel
+from models import (
+    ErrorModel,
+    ErrorResponseModel,
+    AddLikeModel,
+    PostModel,
+    PostsResponseModel,
+)
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -17,8 +23,7 @@ class VkApiError(Exception):
     """Ошибка в работе VkApi"""
 
 
-class VkApi(Generic[T]):
-    model: Type[T]
+class VkApi:
     based_url = "https://api.vk.com/method"
 
     _post_methods = [
@@ -44,20 +49,25 @@ class VkApi(Generic[T]):
     def _handle_error(self, error: ErrorModel) -> None:
         pass
 
-    # Зато если в качетсве аргумента передать модель без типизации, то вернеться либо она либо ошибка, так что пофиг
-    # 1 -Можно сделать базовую АПИ как с репами и просто наплодить классов под каждый вид запрсов, где будут свои модели ответы
-    # 2 -Сделать отдельный класс fetcher который будет плодиться так же как и с репами, но там будут токо эти запросы и ответы моедлями
-    # и получается прямо тут в VkApi будем использовать эти фетчеры(они гдето же будут созданы). а тут по хорошему принимать нужные параметры и все
-    # 1 - что если сделать такие классы и именно в них реализовывать вот этим методы, а не так чтобы они базово были, ну так и надо по идеи
-    # токо тогда в базовом классе будет сам фетчер который возвращает указанную модель
-    def get_fetch_res(self, res: requests.Response) -> T:
+    def fetch_and_get_result(
+        self, result_model: Type[T], method: str, params: dict, data: dict | None = None
+    ) -> T | ErrorModel:
+        res = self._session.post(
+            self.based_url + "/" + method, params=params, data=data
+        )
+        return self.get_res(res, result_model)
+
+    def get_res(self, res: requests.Response, model: Type[T]) -> T | ErrorModel:
         try:
             assert res.status_code == 200
             res_json = res.json()
             if res_json.get("error") is not None:
-                return ErrorModel(**res_json)
+                return ErrorModel.model_validate(res_json["error"])
 
-            return self.model(**res_json)
+            if res_json.get("response"):
+                return model.model_validate(res_json["response"])
+            else:
+                return model.model_validate(res_json)
         except json.JSONDecodeError:
             raise VkApiError(f"Could not get JSON from response: {res.text}")
         except pydantic.ValidationError as e:
@@ -69,10 +79,9 @@ class VkApi(Generic[T]):
                 f"Could not get response, status_code: {res.status_code}\nerror: {e}"
             )
 
-
     def get_wall(self, owner_id: int, start_from: int):
         res = self._session.get(
-            self.based_url + '/wall.get',
+            self.based_url + "/wall.get",
             params=self._liker_params,
             data={
                 "extended": "1",
@@ -81,8 +90,8 @@ class VkApi(Generic[T]):
                 "domain": "-" + str(owner_id),
                 "start_from": str(start_from),
                 "count": "100",
-                **self._default_data
-            }
+                **self._default_data,
+            },
         )
         try:
             assert res.status_code == 200
@@ -140,7 +149,6 @@ class VkApi(Generic[T]):
             res = self._session.get(self.based_url + "/" + method, params=params)
         else:
             raise VkApiError("Could not find method:", method)
-        print(res.text)
 
         try:
             res_json: dict = res.json()
@@ -153,3 +161,7 @@ class VkApi(Generic[T]):
             raise VkApiError("Could not get data from JSON, because:\n", e)
         except Exception as e:
             raise VkApiError("Unknown error, I could not get JSON from response:\n", e)
+
+
+class PostsApi(VkApi[PostsResponseModel]):
+    pass

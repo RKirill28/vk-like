@@ -9,7 +9,7 @@ from auth import AuthData, Authorization
 from captcha import CaptchaSolverService
 from config import cfg
 from liker import VkLiker
-from models import PostsResponseModel
+from models import PostsResponseModel, ErrorModel
 from post_parser import PostParserService
 from vk_api import VkApi
 
@@ -25,7 +25,7 @@ def get_owner_id(group_slug: str, client_id: int, access_token: str) -> int:
         return
 
 
-def build_cookies(auth_cookies: dict) -> dict:
+def build_cookies(auth_cookies: list[dict]) -> RequestsCookieJar:
     cookie_builder = RequestsCookieJar()
     for cookie in auth_cookies:
         try:
@@ -41,7 +41,7 @@ def build_cookies(auth_cookies: dict) -> dict:
             cookie_builder.set(**cookie)
         except:
             pass
-    return cookie_builder.get_dict()
+    return cookie_builder
 
 
 def main():
@@ -95,22 +95,26 @@ def main():
         "filter": "owner",
         "domain": "-" + str(owner_id),
         "start_from": "0",
-        "count": "100",
+        "count": "5",
         "access_token": session.access_token,
     }
     requests_session = requests.Session()
     requests_session.headers = headers
-    for k, v in build_cookies(session.cookies).items():
-        requests_session.cookies.set(k, v)
+    requests_session.cookies = build_cookies(session.cookies)
 
     api = VkApi(requests_session, session)
-    posts = api._fetch(
-        "wall.get",
-        data,
-        {"v": "5.269", "client_id": session.client_id},
-        except_response_model=PostsResponseModel,
+    res = api.fetch_and_get_result(
+        result_model=PostsResponseModel,
+        method="wall.get",
+        params={"v": "5.269", "client_id": session.client_id},
+        data=data,
     )
-    print(posts)
+    if isinstance(res, ErrorModel):
+        print(res.error_msg)
+    else:
+        for item in res.items:
+            print(item)
+
     return
 
     total_count_posts: int = posts_json["response"]["count"]
